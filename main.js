@@ -1,4 +1,7 @@
 let news = [];
+let page = 1;
+let total_pages = 0;
+
 let menus = document.querySelectorAll(".menus button");
 
 menus.forEach(menu => menu.addEventListener("click", (event) => getNewsByTopic(event) ))
@@ -11,15 +14,36 @@ let url;
 
 // 중복되는 부분을 묶어주는 함수
 const getNews = async () => {
-    let header = new Headers({
-        'x-api-key' : '1033LLKR-z8stbNw7sGP6HmG0S3GG-FB4mOrt4NhtqQ'
-    });
+    try {
 
-    let response = await fetch(url, {headers:header}); // ajax, axios, fetch, http
-    let data = await response.json();
-    news = data.articles;
-    console.log(news);
-    render();
+        let header = new Headers({
+            'x-api-key' : '1033LLKR-z8stbNw7sGP6HmG0S3GG-FB4mOrt4NhtqQ'
+        });
+
+        // &page= 를 추가한다는 뜻
+        url.searchParams.set('page', page);
+        console.log(url);
+        let response = await fetch(url, {headers:header}); // ajax, axios, fetch, http
+        let data = await response.json();
+        if(response.status == 200){
+            if(data.total_hits == 0) {
+                throw new Error("검색된 결과값이 없습니다.");
+            }
+            console.log("받는 데이터가 뭐지?", data);
+            news = data.articles;
+            total_pages = data.total_pages;
+            page = data.page;
+            console.log(news);
+            render();
+            pagenation();
+        }else {
+            throw new Error(data.message);
+        }
+    } catch(error){
+        console.log("잡힌 에러는", error.message);
+        errorRender(error.message);
+    }
+    
 }
 
 const getLatestNews = async() => {
@@ -75,7 +99,77 @@ const render = () => {
     document.getElementById("news-board").innerHTML = newsHTML;
 };
 
+const errorRender = (message) => {
+    let errorHTML = `<div class="alert alert-danger text-center" role="alert">
+    ${message}
+  </div>`;
+    document.getElementById("news-board").innerHTML = errorHTML;
+};
+
+const pagenation = () => {
+    let pagenationHTML = ``;
+    // total_page
+    // 현재 page
+    // page group
+    let pageGroup = Math.ceil(page/5);
+    // last
+    let last = pageGroup*5;
+    if(last > total_pages){
+        // 마지막 그룹이 5개 이하이면
+        last = total_pages;
+    }
+    // first
+    let first = last - 4 <= 0 ? 1: last - 4;
+    // first ~ last page 프린트
+
+    // total page 3일경우 3개의 페이지만 프린트 하는법 last, first
+    // << >> 버튼 만들어주기 맨처음, 맨끝으로 가는 버튼 만들어주기
+    // 내가 그룹 1일때 << < 이 버튼이 없다.
+    // 내가 마지막 그룹일때 > >> 버튼이 없다.
 
 
+    if(first >= 6) {
+        pagenationHTML = `<li class="page-item" onclick="moveToPage(1)">
+                        <a class="page-link" href='#js-bottom'>&lt;&lt;</a>
+                      </li>
+                      <li class="page-item">
+                        <a class="page-link" href="#" aria-label="Previous" onclick="moveToPage(${
+                            page - 1
+                         })">
+                        <span aria-hidden="true">&lt;</span>
+                        </a>
+                    </li>`;
+    }
+    
+    for(let i=first; i<=last; i++){
+        pagenationHTML += `<li class="page-item ${
+            page==i?"active":""
+        }"><a class="page-link" href="#" onclick="moveToPage(${i})">${i}</a></li>`
+    }
+    
+    if(last < total_pages){
+        pagenationHTML += ` <li class="page-item">
+    <a class="page-link" href="#" aria-label="Next" onclick="moveToPage(${
+        page + 1
+    })">
+      <span aria-hidden="true">&gt;</span>
+    </a>
+    </li>
+    <li class="page-item" onclick="moveToPage(${total_pages})">
+        <a class="page-link" href='#js-bottom'>&gt;&gt;</a>
+    </li>`;
+    }
+
+
+    document.querySelector(".pagination").innerHTML = pagenationHTML;
+};
+
+const moveToPage = (pageNum) => {
+    // 1. 이동하고 싶은 페이지를 알아야 됨.
+    page = pageNum;
+    // 2. 이동하고 싶은 페이지를 가지고 api를 다시 호출해주자.
+    getNews();
+
+}
 searchButton.addEventListener("click", getNewsByKeyword);
 getLatestNews();
